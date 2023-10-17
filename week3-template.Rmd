@@ -421,7 +421,7 @@ us_states2163 <- st_transform(us_states, "EPSG:2163")
 # then simplify
 us_states_simple <- st_simplify(us_states2163,
             # distance tolerance (anything beyond that threshold, keep or get rid of)
-            dTolerance = 100000
+            dTolerance = 100000 
             #,
          #  preserveTopology = TRUE
             ) # 100km
