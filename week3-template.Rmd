@@ -373,6 +373,16 @@ Sometimes centroids fall outside of the boundaries of the objects they were crea
 
 ```{r include=TRUE}
 
+nz_surface_cent <- st_point_on_surface(nz)
+# forces the centroid to sit on top of the area that we're interested
+
+tm_shape(nz) +
+  tm_fill() +
+  tm_shape(nz_surface_cent) +
+  tm_dots(fill = "blue") +
+  tm_shape(nz_centroids) +
+  tm_dots(fill = "red")
+
 ```
 
 ## distance relationships
@@ -391,19 +401,67 @@ Simplification generalizes vector data (polygons and lines) to assist with plott
 
 Let's try simplifying the US states using the Douglas-Peucker algorithm. GEOS assumes a projected CRS, so we first need to project the data, in this case into the US National Atlas Equal Area (epsg = 2163)
 
+
+Note from lecture:
+- coastline paradox
+- as soon as you start measuring things in greater and greater detail, there's no bound to the answer
+- smaller and smaller units = longer and longer coastline
+
+Douglas-Peucker & Visvalingam’s algorithms
+
+
+[Douglas-Peucker](https://cartography-playground.gitlab.io/playgrounds/douglas-peucker-algorithm/)
+- all about thresholds
+ 
+
 ```{r include=TRUE}
+# first need to reproject
+us_states2163 <- st_transform(us_states, "EPSG:2163")
+
+# then simplify
+us_states_simple <- st_simplify(us_states2163,
+            # distance tolerance (anything beyond that threshold, keep or get rid of)
+            dTolerance = 100000
+            #,
+         #  preserveTopology = TRUE
+            ) # 100km
+
+
+tm_shape(us_states_simple) +
+  tm_polygons()
 
 ```
 
-To preserve the states' topology let's use a simplify function from **rmapshaper** which uses Visalingam's algorithm.
+
+
+Visvalingam -- triangles
+- getting rid of nodes based on the size of the area of the triangle formed between points
+
+
+To **preserve the states' topology** let's use a simplify function from **rmapshaper** which uses Visalingam's algorithm.
+
 
 ```{r include=TRUE}
+library(rmapshaper)
 
+us_states_simple2 <- rmapshaper::ms_simplify(us_states2163,
+                                             keep = 0.01, # proportion (area?) we want to keep/throw away
+                                             keep_shapes = TRUE #keep shapes together
+                                             )
+
+tm_shape(us_states_simple2) +
+  tm_polygons()
 ```
 
 Instead of simplifying, we could try smoothing using Gaussian kernel regression.
 
+other notes from class:
+- Smoothing: Chaikin’s corner cutting algorithm
+- Smoothing: Gaussian kernel
+- smooth out noisy data by weighting it based on the values closest to it / based on the weights of the values around it 
+
 ```{r include=TRUE}
+
 
 ```
 
