@@ -59,13 +59,52 @@ tm_shape(nz) +
 We can perform the same operations using topological operators. These operators return matrices testing the relationship between features. 
 
 ```{r include=TRUE}
+# sparse geometry binary predicate list
+sel_sgbp <- st_intersects(x = nz_height, y = canterbury)
 
+sel_logical <- lengths(sel_sgbp) > 0 # returns list of booleans/ TRUE/FALSE
+# sometimes knowing the number of things that intersect can be helpful
+# count up the trues and falses to get that number
+# if you have a lot of data intersecting the geometries themselves, computationally expensive, if you don't need the geometries to stick around, just counting up the trues and falses can be helpful
+
+
+c_height2 <- nz_height[sel_logical,]
 
 ```
+output shows "Sparse geometry binary predicate list of length 101, where the predicate was
+`intersects'" 
+- nz height has 101 objects in it, so list of length 101. getting an answer for every single item in our original object. "binary predicate" - its basically giving us a T/F of whether it's in it or not (isn't reported as a logical, so we need to turn it into a logical based on the lengths of each item in the object). 
 
 We can also use the **st_filter** function in *sf*
 
+st_intersection example
+```{r}
+c_height3 <- st_intersection(x = nz_height, y = canterbury)
+# returns warning: Warning: attribute variables are assumed to be spatially constant throughout all geometries
+
+# note in environment: 70 obs of 9 variables, rather than 3 
+
+
+# like a join() function
+# copied in the variables from canterbury (7 variables), matched to the variables in nz_height (t50_fid, elevation, geometry)
+
+
+# contextually, doesn't make sense for each of those rows to have all of those extra variables about median income, etc. 
+
+
+# cases where if you had 2 polygons and they intersect
+# working with EJ Screen data, census block groups (county, divided up in weird ways), taking historical redlining data, same area, divided up in slightly different ways
+
+
+# redlining data has grades associated with it
+# comparing air quality from EJ Screen to redlining grade, use an intersection to bring those together
+```
+
+
 ```{r include=TRUE}
+nz_height |> 
+  st_filter(y = canterbury, .predicate = st_intersects)
+
 
 
 ```
