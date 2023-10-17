@@ -150,6 +150,16 @@ us_west_union <- st_union(us_west)
 
 tm_shape(us_west_union) +
   tm_polygons()
+
+
+texas <- us_states |> 
+  filter(NAME == "Texas")
+
+texas_union <- st_union(us_west_union, texas)
+
+tm_shape(texas_union) +
+  tm_polygons()
+
 ```
 
 What is going on here? Behind the scenes, **summarize()** is using **st_union()** to dissolve the boundaries.
@@ -168,9 +178,40 @@ What is going on here? Behind the scenes, **summarize()** is using **st_union()*
 ## spatial joining
 Where attribute joining depends on both data sets sharing a 'key' variable, spatial joining uses the same concept but depends on spatial relationships between data sets. 
 
-Let's test this out by creating 50 points randomly distributed across the world and finding out what countries they call in.
+Let's test this out by creating 50 points randomly distributed across the world and finding out what countries they fall in.
+
+note: st_crs() is a helpful way to check what coordinate reference system a dataset is using/built on 
+
+
+st_transform() to reproject data (in chpater 7)
+
+transform data by taking your object, telling it the new crs with crs = st_crs(other data set you're working with!)
+
+ex:
+st_transform(nz_height, crs = st_crs(world))
 
 ```{r include=TRUE}
+set.seed(2018)
+
+# bounding box
+bb <- st_bbox(world)
+# xmin, ymin, xmax, ymax
+
+# random uniform distribution
+random_df <- data.frame(
+  x = runif(n = 10, min = bb[1], max = bb[3]),   # set the bounds based on our bounding box index positions for xmin, xmax, etc. 
+  y = runif(n = 10, min = bb[2], max = bb[4])
+  
+)
+
+random_points <- random_df |> 
+  st_as_sf(coords = c("x", "y")) |>  # turn lat and long into spatial object
+  st_set_crs("EPSG:4326")
+
+tm_shape(world) +
+  tm_fill() +
+  tm_shape(random_points) +
+  tm_dots(fill = "red")
 
 ```
 
@@ -178,11 +219,17 @@ Let's first use spatial subsetting to find just the countries that contain rando
 
 ```{r include=TRUE}
 
+world_random <- world[random_points, ] # returns the info for each country/location our points fall inside
+
 ```
 
 Now let's perform a spatial join to add the info from each country that a point falls into onto the point dataset.
 
 ```{r include=TRUE}
+
+random_joined <- st_join(random_points, world)
+# NAs are in the ocean so they don't have country information associated with them
+# figured out the intersection, and joined based on that data
 
 ```
 
@@ -190,10 +237,14 @@ By default, **st_join** performs a left join. We change this and instead perform
 
 ```{r include=TRUE}
 
+?st_join
+
 ```
 
 ## non-overlapping joins
 Sometimes we might want join geographic datasets that are strongly related, but do not have overlapping geometries. To demonstrate this, let's look at data on cycle hire points in London.
+
+skipped in class :( 
 
 ```{r include=TRUE}
 
@@ -224,7 +275,18 @@ Note: the number of rows of the join is larger than the number of rows in the or
 Similar to attribute data aggregation, spatial data aggregation condenses data (we end up with fewer rows than we started with).
 
 Let's say we wanted to find the average height of high point in each region of New Zealand. We could use the **aggregate** function in base R.
+
 ```{r include=TRUE}
+nz_agg <- aggregate(x = nz_height, # took all of our points
+                    by = nz, # and summarized them into these regions
+                    FUN = mean)
+# debugging! 
+# we have the right number of rows (16), but not sure if we have the right values (unclear)
+
+tm_shape(nz_agg) +
+  tm_polygons(fill = "elevation")
+
+# lost the region names somehow, but still ended up with what we wanted
 
 ```
 The result of this is an object with the same geometries as the aggregating feature data set (in this case 'nz').
@@ -236,22 +298,73 @@ The result of this is an object with the same geometries as the aggregating feat
 We could also use a **sf**/**dplyr** approach.
 ```{r include=TRUE}
 
+st_join(nz, nz_height) |> 
+  group_by(Name) |> 
+  summarise(elevation = mean(elevation, na.rm = TRUE))
+
+# note: This actually kept the region name associated with the geometries! 
+
 ```
 
 ## joining incongruent layers
 We might want to aggregate data to geometries that are not congruent (i.e. their boundaries don't line up). This causes issues when we think about how to summarize associated values.
+### important for HW2!
+- for when there's missmatch in the areas we're trying to aggregate (very common!)
+
 ```{r include=TRUE}
+head(incongruent)
+
+head(aggregating_zones)
+
+tm_shape(incongruent) +
+  tm_polygons() +
+  tm_shape(aggregating_zones) +
+  tm_borders(col = "red")
+
+# weight based on the relative amount of area that the polygons are in 
 
 ```
 
 The simplest method for dealing with this is using area weighted spatial interpolation which transfers values from the 'incongruent' object to a new column in 'aggregating_zones' in proportion with the area of overlap. 
 
-```{r include=TRUE}
+documentation on st_interpolate_aw:
 
+extensive:
+	
+logical; if TRUE, the attribute variables are assumed to be spatially extensive (like population) and the sum is preserved, otherwise, spatially intensive (like population density) and the mean is preserved.
+
+```{r include=TRUE}
+# head(incongruent) # transfer "values"
+
+iv <- incongruent["value"] # sticky geometries
+
+# area-weighted interpolation
+agg_aw <- st_interpolate_aw(iv, aggregating_zones, extensive = TRUE) 
+# warning is basically saying that we're assuming that attributes are evenly distributed over the entire area of a polygon (not great, but important to keep in mind for our analysis -- might not be appropriate, should think about it more critically)
+
+
+
+tm_shape(agg_aw) +
+  tm_fill(fill = "value")
+ 
 ```
 ## centroids
 Centroids identify the center of a spatial feature. Similar to taking an average, there are many ways to compute a centroid. The most common is the *geographic* centroid.
+
+- gives you points to display as opposed to polygons 
+- the center of mass of an object
+- if you took a polygon, rotated it, and attached a string with a weight on it, where would that line fall through?
+- that point in the center is what the centroid in 
+
 ```{r include=TRUE}
+nz_centroids <-  st_centroid(nz)
+
+tm_shape(nz) +
+  tm_fill() +
+  tm_shape(nz_centroids) +
+  tm_dots(fill = "blue")
+
+# think about donut problem -- sometimes the centroid isn't even in the area of interest because of how the area is distributed
 
 ```
 
@@ -296,4 +409,7 @@ Instead of simplifying, we could try smoothing using Gaussian kernel regression.
 
 
 
-
+### Notes: Convex hulls:
+- ex: you have a stand of trees (points), can turn that into a polygon -- connects up the points along the outside
+- simple way of creating an area
+- areas that animals occupy -- GPS data on where animals are moving, draw a convex hull around the observations
