@@ -8,7 +8,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## prerequisites
 
-```{r install, include=TRUE}
+```{r install, include=TRUE, warning=FALSE}
 rm(list = ls())
 library(sf)
 library(spData)
@@ -26,19 +26,40 @@ Let's start by going back to the New Zealand datasets and find all the high poin
 The command
 
 ```{r include=TRUE}
+canterbury <- nz |> 
+  filter(Name == "Canterbury")
 
+c_height <- nz_height[canterbury, ] # finds where geometries intersect between nz_height and those specified in our canterbury object (nz subset that contains geometries)
+
+
+tm_shape(nz) +
+  tm_polygons() +
+  tm_shape(canterbury) + # subset of nz
+  tm_polygons(fill = "blue") +
+  tm_shape(c_height) + # subset of nz_height
+  tm_dots(fill = "red")
 
 ```
 
 The default is to subset to features that intersect, but we can use other operations, including finding features that do not intersect.
 
-```{r include=TRUE}
+Disjoint
 
+```{r include=TRUE}
+outside_height <- nz_height[canterbury, , op = st_disjoint]
+
+tm_shape(nz) +
+  tm_polygons() +
+  tm_shape(canterbury) +
+  tm_polygons(fill = "blue") +
+  tm_shape(outside_height) +
+  tm_dots(fill = "red")
 ```
 
 We can perform the same operations using topological operators. These operators return matrices testing the relationship between features. 
 
 ```{r include=TRUE}
+
 
 ```
 
